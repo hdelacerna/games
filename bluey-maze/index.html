@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Bluey Super Maze</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            background: linear-gradient(#9edcff, #c7ecff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            font-family: Arial;
+            color: #003366;
+        }
+
+        h1 {
+            font-size: 80px;
+            font-family: "Cherry Bomb One", system-ui;
+            font-weight: lighter;
+            margin: 6px;
+        }
+
+        h2 {
+            margin: 2px;
+            font-family: "Cherry Bomb One", system-ui;
+        }
+
+        canvas {
+            border: 6px solid #1b6ca8;
+            background: #bfeaff;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #winScreen {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        #winScreen.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .winBox {
+            background: #fff;
+            padding: 30px 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            animation: pop 0.4s ease;
+        }
+
+        .winBox h1 {
+            color: #1b6ca8;
+            margin-bottom: 20px;
+        }
+
+        .winBox button {
+            font-size: 18px;
+            padding: 10px 25px;
+            border: none;
+            border-radius: 12px;
+            background: #1b6ca8;
+            color: white;
+            cursor: pointer;
+        }
+
+        .winBox button:hover {
+            background: #155a8c;
+        }
+
+        @keyframes pop {
+            from {
+                transform: scale(0.7);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        #homeBtn {
+            position: fixed;       /* stays visible while playing */
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            padding: 12px 24px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(45deg, #ff6ec7, #1ec5fc, #ffdd00);
+            background-size: 300% 300%;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.4s ease;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        #homeBtn:hover {
+            animation: gradientMove 2s ease infinite;
+            transform: scale(1.1);
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <button id="homeBtn">🏠 Home</button>
+    <h1>Bluey Super Maze</h1>
+    <h2>Help Bluey reach Bingo!</h2>
+
+    <canvas id="maze"></canvas>
+    <div id="winScreen" class="hidden">
+        <div class="winBox">
+            <h1>🎉 Bluey found Bingo! 🎉</h1>
+            <button onclick="location.reload()">Play Again</button>
+        </div>
+    </div>
+    <script>
+
+        document.getElementById("homeBtn").addEventListener("click", () => {
+            window.location.href = "../index.html"; // replace with your library page
+        });
+
+        const size = 39;  // HUGE maze (must be odd)
+        const tile = 26;
+        const imageScale = 3;
+        const music = new Audio("../src/music/bluey-ost.mp3");
+        let musicStarted = false;
+        music.loop = true;
+        music.volume = 0.2;
+        document.addEventListener("keydown", e => {
+
+            if (!musicStarted) {
+                music.play();
+                musicStarted = true;
+            }
+
+            if (e.key === "ArrowUp") move(0, -1);
+            if (e.key === "ArrowDown") move(0, 1);
+            if (e.key === "ArrowLeft") move(-1, 0);
+            if (e.key === "ArrowRight") move(1, 0);
+        });
+
+        const canvas = document.getElementById("maze");
+        canvas.width = size * tile;
+        canvas.height = size * tile;
+        const ctx = canvas.getContext("2d");
+
+        // images
+        const blueyImg = new Image();
+        const bingoImg = new Image();
+
+        blueyImg.src = "../src/images/Bluey.png";
+        bingoImg.src = "../src/images/bluey-bingo.png";
+
+        let maze = Array.from({ length: size }, () =>
+            Array(size).fill(1)
+        );
+
+        // advanced DFS maze generator
+        function generateMaze(x, y) {
+            maze[y][x] = 0;
+
+            const dirs = [
+                [0, -2],
+                [0, 2],
+                [-2, 0],
+                [2, 0]
+            ].sort(() => Math.random() - 0.5);
+
+            for (let [dx, dy] of dirs) {
+                let nx = x + dx;
+                let ny = y + dy;
+
+                if (
+                    ny > 0 && ny < size - 1 &&
+                    nx > 0 && nx < size - 1 &&
+                    maze[ny][nx] === 1
+                ) {
+                    maze[y + dy / 2][x + dx / 2] = 0;
+                    generateMaze(nx, ny);
+                }
+            }
+        }
+
+        generateMaze(1, 1);
+
+        let player = randomPathCell();
+        let exit;
+
+        do {
+            exit = randomPathCell();
+        } while (
+            Math.abs(exit.x - player.x) +
+            Math.abs(exit.y - player.y) < size / 2
+        );
+        function randomPathCell() {
+            let x, y;
+            do {
+                x = Math.floor(Math.random() * size);
+                y = Math.floor(Math.random() * size);
+            } while (maze[y][x] !== 0); // must be walkable
+            return { x, y };
+        }
+
+        function drawCharacter(img, gridX, gridY) {
+            const sizeScaled = tile * imageScale;
+
+            const offsetX = gridX * tile - (sizeScaled - tile) / 2;
+            const offsetY = gridY * tile - (sizeScaled - tile) / 2;
+
+            ctx.drawImage(img, offsetX, offsetY, sizeScaled, sizeScaled);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // walls + floor
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    if (maze[y][x]) {
+                        ctx.fillStyle = "#1b6ca8"; // blue walls
+                    } else {
+                        ctx.fillStyle = "#e6f7ff"; // light floor
+                    }
+                    ctx.fillRect(x * tile, y * tile, tile, tile);
+                }
+            }
+
+            const pad = 1;
+            drawCharacter(bingoImg, exit.x, exit.y);
+            drawCharacter(blueyImg, player.x, player.y);
+        }
+
+        function move(dx, dy) {
+            let nx = player.x + dx;
+            let ny = player.y + dy;
+
+            if (maze[ny][nx] === 0) {
+                player.x = nx;
+                player.y = ny;
+
+                if (nx === exit.x && ny === exit.y) {
+                    setTimeout(() => {
+                        document.getElementById("winScreen").classList.add("show");
+                    }, 60);
+                }
+            }
+
+            draw();
+        }
+
+        document.addEventListener("keydown", e => {
+            if (e.key === "ArrowUp") move(0, -1);
+            if (e.key === "ArrowDown") move(0, 1);
+            if (e.key === "ArrowLeft") move(-1, 0);
+            if (e.key === "ArrowRight") move(1, 0);
+        });
+
+        // wait for images
+        let loaded = 0;
+        function ready() {
+            loaded++;
+            if (loaded === 2) draw();
+        }
+
+        blueyImg.onload = ready;
+        bingoImg.onload = ready;
+    </script>
+
+</body>
+
+</html>
