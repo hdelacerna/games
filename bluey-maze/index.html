@@ -11,32 +11,32 @@
     <style>
         body {
             margin: 0;
+            font-family: "Cherry Bomb One", system-ui;
             background: linear-gradient(#9edcff, #c7ecff);
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             flex-direction: column;
-            font-family: Arial;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
             color: #003366;
         }
 
         h1 {
-            font-size: 80px;
-            font-family: "Cherry Bomb One", system-ui;
-            font-weight: lighter;
-            margin: 6px;
+            font-size: 2.5rem;
+            margin: 15px 0 5px;
         }
 
         h2 {
-            margin: 2px;
-            font-family: "Cherry Bomb One", system-ui;
+            color: #1b6ca8;
+            margin: 5px 0 15px;
         }
 
         canvas {
             border: 6px solid #1b6ca8;
             background: #bfeaff;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            touch-action: none;
+            /* prevent scrolling when swiping on canvas */
         }
 
         #winScreen {
@@ -49,6 +49,7 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.4s ease;
+            z-index: 1000;
         }
 
         #winScreen.show {
@@ -75,13 +76,13 @@
             padding: 10px 25px;
             border: none;
             border-radius: 12px;
-            background: #1b6ca8;
+            background: #ff6ec7;
             color: white;
             cursor: pointer;
         }
 
         .winBox button:hover {
-            background: #155a8c;
+            background: #ff3fc7;
         }
 
         @keyframes pop {
@@ -97,7 +98,8 @@
         }
 
         #homeBtn {
-            position: fixed;       /* stays visible while playing */
+            position: fixed;
+            /* stays visible while playing */
             top: 20px;
             left: 20px;
             z-index: 1000;
@@ -110,9 +112,9 @@
             background-size: 300% 300%;
             color: white;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
             transition: all 0.4s ease;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         #homeBtn:hover {
@@ -121,11 +123,43 @@
         }
 
         @keyframes gradientMove {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
         }
 
+        /* Touch joystick */
+        #joystick {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+
+        #stick {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #1b6ca8;
+            position: absolute;
+            pointer-events: none;
+        }
     </style>
 </head>
 
@@ -142,15 +176,19 @@
             <button onclick="location.reload()">Play Again</button>
         </div>
     </div>
+    <div id="joystick">
+        <div id="stick"></div>
+    </div>
     <script>
 
         document.getElementById("homeBtn").addEventListener("click", () => {
             window.location.href = "../index.html"; // replace with your library page
         });
 
-        const size = 39;  // HUGE maze (must be odd)
-        const tile = 26;
-        const imageScale = 3;
+        const size = 31;   // maze complexity
+        const tile = 30;   // base tile size
+        let scale = 1;     // canvas scale
+        const imageScale = 2;
         const music = new Audio("../src/music/bluey-ost.mp3");
         let musicStarted = false;
         music.loop = true;
@@ -230,35 +268,36 @@
             return { x, y };
         }
 
-        function drawCharacter(img, gridX, gridY) {
+        // Responsive canvas
+        function resizeCanvas() {
+            scale = Math.min(window.innerWidth / (size * tile), window.innerHeight / (size * tile), 1);
+            canvas.width = size * tile * scale;
+            canvas.height = size * tile * scale;
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Draw
+        function drawCharacter(img, x, y) {
             const sizeScaled = tile * imageScale;
-
-            const offsetX = gridX * tile - (sizeScaled - tile) / 2;
-            const offsetY = gridY * tile - (sizeScaled - tile) / 2;
-
+            const offsetX = x * tile - (sizeScaled - tile) / 2;
+            const offsetY = y * tile - (sizeScaled - tile) / 2;
             ctx.drawImage(img, offsetX, offsetY, sizeScaled, sizeScaled);
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // walls + floor
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
-                    if (maze[y][x]) {
-                        ctx.fillStyle = "#1b6ca8"; // blue walls
-                    } else {
-                        ctx.fillStyle = "#e6f7ff"; // light floor
-                    }
+                    ctx.fillStyle = maze[y][x] ? "#1b6ca8" : "#e6f7ff";
                     ctx.fillRect(x * tile, y * tile, tile, tile);
                 }
             }
-
-            const pad = 1;
             drawCharacter(bingoImg, exit.x, exit.y);
             drawCharacter(blueyImg, player.x, player.y);
         }
-
         function move(dx, dy) {
             let nx = player.x + dx;
             let ny = player.y + dy;
@@ -293,6 +332,46 @@
 
         blueyImg.onload = ready;
         bingoImg.onload = ready;
+
+
+        // --- Touch joystick ---
+        const joystick = document.getElementById('joystick');
+        const stick = document.getElementById('stick'); F
+        let touchId = null;
+        let origin = { x: 0, y: 0 };
+
+        joystick.addEventListener('touchstart', e => {
+            const t = e.changedTouches[0];
+            touchId = t.identifier;
+            origin = { x: t.clientX, y: t.clientY };
+            stick.style.transform = `translate(${origin.x - origin.x}px,${origin.y - origin.y}px)`;
+        });
+
+        joystick.addEventListener('touchmove', e => {
+            for (const t of e.changedTouches) {
+                if (t.identifier === touchId) {
+                    const dx = t.clientX - origin.x;
+                    const dy = t.clientY - origin.y;
+                    stick.style.transform = `translate(${dx}px,${dy}px)`;
+                    if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+                        if (Math.abs(dx) > Math.abs(dy)) {
+                            if (dx > 0) move(1, 0); else move(-1, 0);
+                        } else {
+                            if (dy > 0) move(0, 1); else move(0, -1);
+                        }
+                    }
+                }
+            }
+        }, false);
+
+        joystick.addEventListener('touchend', e => {
+            for (const t of e.changedTouches) {
+                if (t.identifier === touchId) {
+                    touchId = null;
+                    stick.style.transform = 'translate(0,0)';
+                }
+            }
+        }, false);
     </script>
 
 </body>
