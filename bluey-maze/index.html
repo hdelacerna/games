@@ -136,29 +136,32 @@
             }
         }
 
-        /* Touch joystick */
         #joystick {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            width: 120px;
-            height: 120px;
+            width: 250px;
+            height: 25px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.3);
-            display: flex;
+            display: none;
             justify-content: center;
             align-items: center;
             touch-action: none;
+            /* important */
+            z-index: 1000;
         }
 
         #stick {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             background: #1b6ca8;
             position: absolute;
-            pointer-events: none;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
         }
     </style>
 </head>
@@ -180,7 +183,12 @@
         <div id="stick"></div>
     </div>
     <script>
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+        if(isMobile){
+            document.getElementById('joystick').style.display = 'flex';
+        }
+        
         document.getElementById("homeBtn").addEventListener("click", () => {
             window.location.href = "../index.html"; // replace with your library page
         });
@@ -333,45 +341,77 @@
         blueyImg.onload = ready;
         bingoImg.onload = ready;
 
-
-        // --- Touch joystick ---
         const joystick = document.getElementById('joystick');
-        const stick = document.getElementById('stick'); F
+        const stick = document.getElementById('stick');
         let touchId = null;
         let origin = { x: 0, y: 0 };
+        let moving = false;
 
+        // Limit joystick movement radius
+        const maxDistance = 40;
+        let lastMoveTime = 0;
+        const moveCooldown = 150; // milliseconds between moves
+
+        function movePlayerByJoystick(dx, dy) {
+            const now = Date.now();
+            if(now - lastMoveTime < moveCooldown) return; // prevent too frequent moves
+            lastMoveTime = now;
+
+            if(Math.abs(dx) > Math.abs(dy)) {
+                dx > 0 ? move(1,0) : move(-1,0);
+            } else {
+                dy > 0 ? move(0,1) : move(0,-1);
+            }
+        }
+
+        // Touch start
         joystick.addEventListener('touchstart', e => {
+            e.preventDefault();
             const t = e.changedTouches[0];
             touchId = t.identifier;
             origin = { x: t.clientX, y: t.clientY };
-            stick.style.transform = `translate(${origin.x - origin.x}px,${origin.y - origin.y}px)`;
+            moving = true;
         });
 
+        // Touch move
         joystick.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (!moving) return;
             for (const t of e.changedTouches) {
                 if (t.identifier === touchId) {
-                    const dx = t.clientX - origin.x;
-                    const dy = t.clientY - origin.y;
-                    stick.style.transform = `translate(${dx}px,${dy}px)`;
-                    if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
-                        if (Math.abs(dx) > Math.abs(dy)) {
-                            if (dx > 0) move(1, 0); else move(-1, 0);
-                        } else {
-                            if (dy > 0) move(0, 1); else move(0, -1);
-                        }
+                    let dx = t.clientX - origin.x;
+                    let dy = t.clientY - origin.y;
+
+                    // Limit stick movement
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance > maxDistance) {
+                        dx = dx / distance * maxDistance;
+                        dy = dy / distance * maxDistance;
+                    }
+
+                    // stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+                    // Only move player if movement exceeds threshold
+                    if (distance > 15) {
+                        movePlayerByJoystick(dx, dy);
+                        origin = { x: t.clientX, y: t.clientY }; // reset origin for next move
                     }
                 }
             }
-        }, false);
+        }, { passive: false });
 
+        // Touch end
         joystick.addEventListener('touchend', e => {
+            e.preventDefault();
             for (const t of e.changedTouches) {
                 if (t.identifier === touchId) {
                     touchId = null;
-                    stick.style.transform = 'translate(0,0)';
+                    moving = false;
+                    // stick.style.transform = `translate(-50%, -50%)`;
                 }
             }
-        }, false);
+        }, { passive: false });
+
     </script>
 
 </body>
